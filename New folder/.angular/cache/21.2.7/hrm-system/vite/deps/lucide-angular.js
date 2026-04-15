@@ -15,16 +15,16 @@ import {
   ɵɵdirectiveInject,
   ɵɵprojection,
   ɵɵprojectionDef
-} from "./chunk-PXB5QXP3.js";
+} from "./chunk-BS5C7DMT.js";
 import {
   InjectionToken,
   ɵɵdefineInjectable,
   ɵɵdefineInjector
-} from "./chunk-G7U5O3NR.js";
+} from "./chunk-LKACIXPJ.js";
 import {
   __spreadProps,
   __spreadValues
-} from "./chunk-KUW5KNZA.js";
+} from "./chunk-VEF4Q3TF.js";
 
 // node_modules/lucide-angular/fesm2020/lucide-angular.mjs
 var _c0 = ["*"];
