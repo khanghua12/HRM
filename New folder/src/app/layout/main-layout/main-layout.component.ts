@@ -81,6 +81,7 @@ export class MainLayoutComponent {
     { path: '/employees', label: 'Nhân viên', icon: 'users' },
     { path: '/recruitment', label: 'Tuyển dụng', icon: 'briefcase' },
     { path: '/payroll', label: 'Lương & phúc lợi', icon: 'wallet' },
+    { path: '/payroll/detail', label: 'Chi tiết lương', icon: 'badge-dollar-sign' },
     { path: '/performance', label: 'Hiệu suất & KPI', icon: 'chart-column' },
     { path: '/training', label: 'Đào tạo', icon: 'graduation-cap' }
   ];
