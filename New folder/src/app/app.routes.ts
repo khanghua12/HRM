@@ -36,9 +36,19 @@ export const appRoutes: Routes = [
           import('./features/performance/performance.routes').then((m) => m.PERFORMANCE_ROUTES)
       },
       {
+        path: 'work',
+        loadChildren: () =>
+          import('./features/work/work.routes').then((m) => m.WORK_ROUTES)
+      },
+      {
         path: 'training',
         loadChildren: () =>
           import('./features/training/training.routes').then((m) => m.TRAINING_ROUTES)
+      },
+      {
+        path: 'forms',
+        loadChildren: () =>
+          import('./features/forms/forms.routes').then((m) => m.FORMS_ROUTES)
       },
       { path: '', pathMatch: 'full', redirectTo: 'employees' }
     ]
