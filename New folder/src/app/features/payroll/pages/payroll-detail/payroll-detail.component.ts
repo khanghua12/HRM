@@ -1,4 +1,4 @@
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
@@ -8,8 +8,25 @@ interface SalaryEmployee {
   department: string;
   position: string;
   grossSalary: number;
-  tax: number;
+  workingDays: number;
+  salary: number;
   bhxh: number;
+  tax: number;
+  advanceDeduction: number;
+  totalDeductions: number;
+  lunchAllowance: number;
+  transportAllowance: number;
+  attendanceAllowance: number;
+  responsibilityAllowance: number;
+  businessTripAllowance: number;
+  leaveDays: number;
+  holidayDays: number;
+  leavePay: number;
+  holidayPay: number;
+  totalSupplementaryIncome: number;
+  allowances: number;
+  referralMoney: number;
+  bonusAmount: number;
   otherDeductions: number;
   netSalary: number;
   raiseCount: number;
@@ -20,7 +37,7 @@ interface SalaryEmployee {
 @Component({
   selector: 'app-payroll-detail',
   standalone: true,
-  imports: [CurrencyPipe, DatePipe, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule],
   template: `
     <div class="space-y-6">
       <div class="rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-600 p-6 text-white shadow-sm">
@@ -37,7 +54,7 @@ interface SalaryEmployee {
             type="button"
             (click)="exportExcel()"
           >
-            Xuất báo cáo CSV
+            Xuất Excel tổng hợp
           </button>
         </div>
       </div>
@@ -64,7 +81,7 @@ interface SalaryEmployee {
                 class="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-indigo-500 sm:w-72"
                 placeholder="Tìm theo tên, phòng ban, chức danh..."
                 [value]="search()"
-                (input)="search.set($any($event.target).value); currentPage.set(1)"
+                (input)="onSearchInput($event)"
               />
             </div>
           </div>
@@ -175,7 +192,7 @@ interface SalaryEmployee {
 
     @if (selectedEmployee()) {
       <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="closeDetail()">
-        <div class="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-xl" (click)="$event.stopPropagation()">
+        <div class="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-xl" (click)="$event.stopPropagation()">
           <div class="flex items-start justify-between gap-4">
             <div>
               <h4 class="text-xl font-semibold text-slate-900">Chi tiết lương nhân viên</h4>
@@ -215,6 +232,18 @@ interface SalaryEmployee {
                 <input class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" type="number" formControlName="bhxh" />
               </div>
               <div>
+                <label class="text-xs font-medium text-slate-600">Phụ cấp</label>
+                <input class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" type="number" formControlName="allowances" />
+              </div>
+              <div>
+                <label class="text-xs font-medium text-slate-600">Tiền giới thiệu</label>
+                <input class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" type="number" formControlName="referralMoney" />
+              </div>
+              <div>
+                <label class="text-xs font-medium text-slate-600">Khoản thưởng</label>
+                <input class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" type="number" formControlName="bonusAmount" />
+              </div>
+              <div>
                 <label class="text-xs font-medium text-slate-600">Các phí khác</label>
                 <input class="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" type="number" formControlName="otherDeductions" />
               </div>
@@ -250,10 +279,10 @@ export class PayrollDetailComponent {
   readonly selectedEmployeeId = signal<string | null>(null);
 
   readonly employees = signal<SalaryEmployee[]>([
-    { id: 'emp-01', name: 'Nguyễn Minh Anh', department: 'Nhân sự', position: 'HR Manager', grossSalary: 42000000, tax: 1200000, bhxh: 2100000, otherDeductions: 300000, netSalary: 38400000, raiseCount: 3, yearsWorked: 6, lastRaiseAt: '2025-12-15' },
-    { id: 'emp-02', name: 'Trần Quốc Huy', department: 'Kinh doanh', position: 'Sales Lead', grossSalary: 38000000, tax: 1000000, bhxh: 1900000, otherDeductions: 500000, netSalary: 34600000, raiseCount: 2, yearsWorked: 4, lastRaiseAt: '2025-10-01' },
-    { id: 'emp-03', name: 'Lê Thảo Vy', department: 'Tài chính', position: 'Payroll Specialist', grossSalary: 28000000, tax: 800000, bhxh: 1400000, otherDeductions: 200000, netSalary: 25600000, raiseCount: 4, yearsWorked: 7, lastRaiseAt: '2026-01-01' },
-    { id: 'emp-04', name: 'Phạm Gia Bảo', department: 'Vận hành', position: 'Operations Analyst', grossSalary: 25000000, tax: 600000, bhxh: 1250000, otherDeductions: 150000, netSalary: 23000000, raiseCount: 1, yearsWorked: 2, lastRaiseAt: '2025-08-20' }
+    { id: 'emp-01', name: 'Nguyễn Minh Anh', department: 'Nhân sự', position: 'HR Manager', grossSalary: 42000000, workingDays: 26, salary: 42000000, bhxh: 2100000, tax: 1200000, advanceDeduction: 300000, totalDeductions: 3600000, lunchAllowance: 600000, transportAllowance: 800000, attendanceAllowance: 400000, responsibilityAllowance: 500000, businessTripAllowance: 200000, leaveDays: 1, holidayDays: 0, leavePay: 1600000, holidayPay: 0, totalSupplementaryIncome: 3900000, allowances: 1800000, referralMoney: 500000, bonusAmount: 2500000, otherDeductions: 300000, netSalary: 40100000, raiseCount: 3, yearsWorked: 6, lastRaiseAt: '2025-12-15' },
+    { id: 'emp-02', name: 'Trần Quốc Huy', department: 'Kinh doanh', position: 'Sales Lead', grossSalary: 38000000, workingDays: 26, salary: 38000000, bhxh: 1900000, tax: 1000000, advanceDeduction: 500000, totalDeductions: 3400000, lunchAllowance: 500000, transportAllowance: 700000, attendanceAllowance: 300000, responsibilityAllowance: 400000, businessTripAllowance: 300000, leaveDays: 0, holidayDays: 1, leavePay: 0, holidayPay: 1800000, totalSupplementaryIncome: 4000000, allowances: 1200000, referralMoney: 1000000, bonusAmount: 1800000, otherDeductions: 500000, netSalary: 37500000, raiseCount: 2, yearsWorked: 4, lastRaiseAt: '2025-10-01' },
+    { id: 'emp-03', name: 'Lê Thảo Vy', department: 'Tài chính', position: 'Payroll Specialist', grossSalary: 28000000, workingDays: 25, salary: 28000000, bhxh: 1400000, tax: 800000, advanceDeduction: 200000, totalDeductions: 2400000, lunchAllowance: 400000, transportAllowance: 500000, attendanceAllowance: 250000, responsibilityAllowance: 300000, businessTripAllowance: 150000, leaveDays: 2, holidayDays: 0, leavePay: 1200000, holidayPay: 0, totalSupplementaryIncome: 2800000, allowances: 1000000, referralMoney: 0, bonusAmount: 1200000, otherDeductions: 200000, netSalary: 28200000, raiseCount: 4, yearsWorked: 7, lastRaiseAt: '2026-01-01' },
+    { id: 'emp-04', name: 'Phạm Gia Bảo', department: 'Vận hành', position: 'Operations Analyst', grossSalary: 25000000, workingDays: 26, salary: 25000000, bhxh: 1250000, tax: 600000, advanceDeduction: 150000, totalDeductions: 2000000, lunchAllowance: 350000, transportAllowance: 450000, attendanceAllowance: 200000, responsibilityAllowance: 250000, businessTripAllowance: 100000, leaveDays: 1, holidayDays: 0, leavePay: 800000, holidayPay: 0, totalSupplementaryIncome: 2150000, allowances: 800000, referralMoney: 0, bonusAmount: 1000000, otherDeductions: 150000, netSalary: 25100000, raiseCount: 1, yearsWorked: 2, lastRaiseAt: '2025-08-20' }
   ]);
 
   readonly detailForm = this.fb.nonNullable.group({
@@ -263,6 +292,9 @@ export class PayrollDetailComponent {
     grossSalary: [0, [Validators.required, Validators.min(0)]],
     tax: [0, [Validators.required, Validators.min(0)]],
     bhxh: [0, [Validators.required, Validators.min(0)]],
+    allowances: [0, [Validators.required, Validators.min(0)]],
+    referralMoney: [0, [Validators.required, Validators.min(0)]],
+    bonusAmount: [0, [Validators.required, Validators.min(0)]],
     otherDeductions: [0, [Validators.required, Validators.min(0)]],
     yearsWorked: [0, [Validators.required, Validators.min(0)]],
     lastRaiseAt: ['', Validators.required],
@@ -275,6 +307,8 @@ export class PayrollDetailComponent {
   });
 
   readonly totalGross = computed(() => this.employees().reduce((sum, item) => sum + item.grossSalary, 0));
+  readonly totalAllowances = computed(() => this.employees().reduce((sum, item) => sum + item.allowances, 0));
+  readonly totalBonuses = computed(() => this.employees().reduce((sum, item) => sum + item.bonusAmount + item.referralMoney, 0));
   readonly averageGross = computed(() => Math.round(this.totalGross() / this.employees().length));
   readonly departmentCount = computed(() => new Set(this.employees().map((item) => item.department)).size);
 
@@ -282,7 +316,9 @@ export class PayrollDetailComponent {
     { label: 'Tổng quỹ lương gross', value: this.totalGross().toLocaleString('vi-VN') + ' đ', note: 'Tổng lương trước bảo hiểm và thuế' },
     { label: 'Số nhân viên', value: this.employees().length.toString(), note: 'Đang có trong bảng lương' },
     { label: 'Lương trung bình', value: this.averageGross().toLocaleString('vi-VN') + ' đ', note: 'Trung bình theo dữ liệu hiện tại' },
-    { label: 'Phòng ban', value: this.departmentCount().toString(), note: 'Các phòng ban đang quản lý' }
+    { label: 'Phòng ban', value: this.departmentCount().toString(), note: 'Các phòng ban đang quản lý' },
+    { label: 'Tổng phụ cấp', value: this.totalAllowances().toLocaleString('vi-VN') + ' đ', note: 'Tổng phụ cấp của toàn bộ nhân viên' },
+    { label: 'Tổng thưởng', value: this.totalBonuses().toLocaleString('vi-VN') + ' đ', note: 'Tiền thưởng nhập thêm bởi kế toán' }
   ]);
 
   readonly salaryBands = computed(() => {
@@ -321,6 +357,12 @@ export class PayrollDetailComponent {
   readonly paginationStart = computed(() => (this.filteredEmployees().length === 0 ? 0 : (this.currentPage() - 1) * this.pageSize() + 1));
   readonly paginationEnd = computed(() => Math.min(this.currentPage() * this.pageSize(), this.filteredEmployees().length));
 
+  onSearchInput(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    this.search.set(target?.value ?? '');
+    this.currentPage.set(1);
+  }
+
   openDetail(employeeId: string): void {
     this.selectedEmployeeId.set(employeeId);
     const employee = this.employees().find((item) => item.id === employeeId);
@@ -332,6 +374,9 @@ export class PayrollDetailComponent {
       grossSalary: employee.grossSalary,
       tax: employee.tax,
       bhxh: employee.bhxh,
+      allowances: employee.allowances,
+      referralMoney: employee.referralMoney,
+      bonusAmount: employee.bonusAmount,
       otherDeductions: employee.otherDeductions,
       yearsWorked: employee.yearsWorked,
       lastRaiseAt: employee.lastRaiseAt,
@@ -351,7 +396,10 @@ export class PayrollDetailComponent {
     }
 
     const value = this.detailForm.getRawValue();
-    const netSalary = Math.max(0, Number(value.grossSalary) - Number(value.tax ?? 0) - Number(value.bhxh ?? 0) - Number(value.otherDeductions ?? 0));
+    const netSalary = Math.max(
+      0,
+      Number(value.grossSalary) + Number(value.allowances ?? 0) + Number(value.referralMoney ?? 0) + Number(value.bonusAmount ?? 0) - Number(value.tax ?? 0) - Number(value.bhxh ?? 0) - Number(value.otherDeductions ?? 0)
+    );
     this.employees.update((items) =>
       items.map((item) =>
         item.id === employee.id
@@ -363,6 +411,9 @@ export class PayrollDetailComponent {
               grossSalary: value.grossSalary,
               tax: value.tax,
               bhxh: value.bhxh,
+              allowances: value.allowances,
+              referralMoney: value.referralMoney,
+              bonusAmount: value.bonusAmount,
               otherDeductions: value.otherDeductions,
               netSalary,
               yearsWorked: value.yearsWorked,
@@ -375,15 +426,90 @@ export class PayrollDetailComponent {
     this.closeDetail();
   }
 
-  exportExcel(): void {
-    const header = ['Tên', 'Phòng ban', 'Chức danh', 'Lương cơ bản', 'Thuế', 'BHXH', 'Phí khác', 'Thực nhận', 'Thâm niên', 'Số lần tăng lương', 'Ngày áp dụng'];
-    const rows = this.employees().map((employee) => [employee.name, employee.department, employee.position, employee.grossSalary, employee.tax, employee.bhxh, employee.otherDeductions, employee.netSalary, employee.yearsWorked, employee.raiseCount, employee.lastRaiseAt]);
-    const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n');
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  async exportExcel(): Promise<void> {
+    const XLSX = await import('xlsx');
+    const workbook = XLSX.utils.book_new();
+
+    const headers = [
+      'Stt',
+      'Họ và Tên',
+      'Chức vụ',
+      'Lương CB',
+      'Ngày công',
+      'Lương',
+      'BHXH 10,5%',
+      'Thuế TNCN',
+      'Trừ tạm ứng',
+      'Tổng các khoản khấu trừ',
+      'Phụ cấp ăn trưa',
+      'Hỗ trợ xăng xe, điện thoại',
+      'Phụ cấp chuyên cần',
+      'Phụ cấp trách nhiệm',
+      'Phụ cấp công tác (nếu có)',
+      'Tổng phụ cấp',
+      'Ngày nghĩ phép',
+      'Ngày nghỉ Lễ/Tết',
+      'Tiền nghỉ phép, Lễ/Tết',
+      'Tổng thu nhập bổ sung',
+      'Thực lĩnh',
+      'Công chuẩn',
+      'Ăn trưa',
+      'Xăng xe',
+      'Chuyên cần',
+      'Trách nhiệm',
+      'Công tác',
+      'Tổng thực nhận'
+    ];
+
+    const rows = this.employees().map((employee, index) => {
+      const totalAllowances = employee.allowances;
+      const totalSupplementaryIncome = employee.totalSupplementaryIncome;
+      const totalDeductions = employee.totalDeductions;
+      const grossPay = employee.salary;
+      const actualReceived = Math.max(0, grossPay + totalAllowances + totalSupplementaryIncome - totalDeductions);
+
+      return [
+        index + 1,
+        employee.name,
+        employee.position,
+        employee.grossSalary,
+        employee.workingDays,
+        grossPay,
+        employee.bhxh,
+        employee.tax,
+        employee.advanceDeduction,
+        totalDeductions,
+        employee.lunchAllowance,
+        employee.transportAllowance,
+        employee.attendanceAllowance,
+        employee.responsibilityAllowance,
+        employee.businessTripAllowance,
+        totalAllowances,
+        employee.leaveDays,
+        employee.holidayDays,
+        employee.leavePay + employee.holidayPay,
+        totalSupplementaryIncome,
+        employee.netSalary,
+        26,
+        employee.lunchAllowance,
+        employee.transportAllowance,
+        employee.attendanceAllowance,
+        employee.responsibilityAllowance,
+        employee.businessTripAllowance,
+        actualReceived
+      ];
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    worksheet['!cols'] = headers.map((header) => ({ wch: Math.max(header.length + 2, 14) }));
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Bảng tính lương');
+
+    const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'bao-cao-luong.csv';
+    link.download = 'bang-tinh-luong-tong-hop.xlsx';
     link.click();
     URL.revokeObjectURL(url);
   }

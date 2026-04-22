@@ -5,6 +5,7 @@ import type { EmployeeStatus, EmployeeSummary } from '../models/employee-summary
 
 type EmployeeFilter = {
   status?: EmployeeStatus | '';
+  department?: string;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -25,8 +26,12 @@ export class EmployeesMockStore {
     return this.employees$.pipe(
       map((list) => {
         const status = filter.status ?? '';
-        if (!status) return list;
-        return list.filter((e) => e.status === status);
+        const department = filter.department?.trim() ?? '';
+        return list.filter((e) => {
+          if (status && e.status !== status) return false;
+          if (department && e.department !== department) return false;
+          return true;
+        });
       })
     );
   }

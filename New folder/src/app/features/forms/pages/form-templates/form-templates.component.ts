@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 interface TemplateField {
@@ -31,7 +31,7 @@ const DEFAULT_HEADER = 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc l�
           </div>
           <div class="flex flex-wrap gap-2">
             <button class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-violet-700 shadow-sm" type="button" (click)="startNewTemplate()">Tạo mẫu</button>
-            <button class="rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/30 hover:bg-white/15" type="button" (click)="printTemplate()">In mẫu đơn</button>
+            <button class="rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/30 hover:bg-white/15" type="button" (click)="exportPdf()">Xuất PDF đơn</button>
           </div>
         </div>
       </div>
@@ -125,12 +125,12 @@ const DEFAULT_HEADER = 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc l�
             </div>
             <div class="flex gap-2">
               <button class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" type="button" (click)="useTemplate()">Dùng trực tiếp</button>
-              <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700" type="button" (click)="printTemplate()">In ra</button>
+              <button class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700" type="button" (click)="exportPdf()">Xuất PDF</button>
             </div>
           </div>
 
           <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div class="mx-auto max-w-3xl rounded-xl bg-white p-6 shadow-sm">
+            <div class="mx-auto max-w-3xl rounded-xl bg-white p-8 shadow-sm">
               <div class="text-center text-sm font-semibold uppercase tracking-wide text-slate-900 whitespace-pre-line">{{ legalHeader }}</div>
               <div class="mt-2 flex justify-center">
                 <div class="h-px w-36 bg-slate-900"></div>
@@ -175,7 +175,7 @@ const DEFAULT_HEADER = 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc l�
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FormTemplatesComponent {
-  private readonly fb = new FormBuilder();
+  private readonly fb = inject(FormBuilder);
 
   readonly legalHeader = DEFAULT_HEADER;
   readonly templates = signal<FormTemplate[]>([
@@ -327,17 +327,14 @@ export class FormTemplatesComponent {
     this.resetFieldArray(template.fields);
   }
 
-  printTemplate(): void {
+  exportPdf(): void {
     const template = this.activeTemplate();
     if (!template) return;
-
-    const w = window.open('', '_blank', 'width=900,height=700');
-    if (!w) return;
 
     const fieldsHtml = template.fields
       .map(
         (field) => `
-          <div class="field-row">
+          <div class="field-row ${this.isFullWidthField(field.label) ? 'full-width' : ''}">
             <div class="label">${field.label}</div>
             <div class="value">${field.value || '&nbsp;'}</div>
           </div>`
@@ -349,17 +346,20 @@ export class FormTemplatesComponent {
         <head>
           <title>${template.name}</title>
           <style>
-            @page { size: A4; margin: 18mm 18mm 20mm; }
-            body { font-family: Arial, sans-serif; color: #111827; }
-            .page { max-width: 800px; margin: 0 auto; }
-            .header { text-align: center; font-weight: 700; font-size: 16px; line-height: 1.5; white-space: pre-line; }
-            .header-line { width: 160px; height: 1px; background: #111827; margin: 8px auto 0; }
+            @page { size: A4; margin: 20mm; }
+            html, body { margin: 0; padding: 0; }
+            body { font-family: Arial, sans-serif; color: #111827; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .page { max-width: 100%; border: 1px solid #e5e7eb; padding: 18mm 16mm; box-sizing: border-box; }
+            .header { text-align: center; font-weight: 700; font-size: 15px; line-height: 1.5; white-space: pre-line; }
+            .header-line { width: 180px; height: 1px; background: #111827; margin: 8px auto 0; }
             .title { text-align: center; margin: 18px 0 6px; font-size: 22px; font-weight: 700; text-transform: uppercase; }
-            .subtitle { text-align: center; color: #374151; margin-bottom: 20px; }
-            .field-row { display: grid; grid-template-columns: 220px 1fr; gap: 16px; align-items: center; margin-bottom: 12px; }
-            .label { font-weight: 600; }
-            .value { min-height: 22px; border-bottom: 1px dotted #9ca3af; padding-bottom: 2px; }
-            .footer { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 48px; }
+            .subtitle { text-align: center; color: #374151; margin-bottom: 18px; }
+            .field-row { display: grid; grid-template-columns: 34% 1fr; gap: 14px; align-items: start; margin-bottom: 12px; }
+            .field-row.full-width { grid-template-columns: 100%; }
+            .label { font-weight: 600; line-height: 1.5; }
+            .value { min-height: 22px; border-bottom: 1px dotted #9ca3af; padding-bottom: 2px; line-height: 1.5; }
+            .field-row.full-width .value { min-height: 48px; }
+            .footer { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 48px; }
             .sign { text-align: center; }
             .sign-title { font-weight: 700; text-transform: uppercase; }
             .sign-line { margin-top: 72px; border-top: 1px dashed #6b7280; padding-top: 6px; color: #6b7280; }
@@ -383,12 +383,22 @@ export class FormTemplatesComponent {
               </div>
             </div>
           </div>
-          <script>window.onload = () => window.print();</script>
+          <script>
+            window.onload = () => {
+              window.print();
+              window.onafterprint = () => window.close();
+            };
+          </script>
         </body>
       </html>`;
 
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank', 'width=900,height=700');
+    if (!win) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+    win.addEventListener('beforeunload', () => URL.revokeObjectURL(url));
   }
 }

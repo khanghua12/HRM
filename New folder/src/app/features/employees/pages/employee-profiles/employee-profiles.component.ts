@@ -19,7 +19,7 @@ import { EmployeesMockStore } from '../../services/employees-mock.store';
           <h3 class="text-base font-semibold text-slate-900">Hồ sơ nhân viên</h3>
           <p class="mt-1 text-xs text-slate-500">Danh sách hồ sơ theo bộ lọc từ Dashboard.</p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <select
             class="h-9 rounded border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-500"
             [value]="statusFilter()"
@@ -32,6 +32,17 @@ import { EmployeesMockStore } from '../../services/employees-mock.store';
             <option value="intern">Thực tập</option>
             <option value="trainee">Học việc</option>
             <option value="inactive">Nghỉ việc</option>
+          </select>
+
+          <select
+            class="h-9 rounded border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-500"
+            [value]="departmentFilter()"
+            (change)="onDepartmentChange($any($event.target).value)"
+          >
+            <option value="">Tất cả phòng ban</option>
+            @for (department of departments(); track department) {
+              <option [value]="department">{{ department }}</option>
+            }
           </select>
         </div>
       </div>
@@ -145,17 +156,28 @@ export class EmployeeProfilesComponent {
   private readonly store = inject(EmployeesMockStore);
 
   readonly statusFilter = signal<EmployeeStatus | ''>('');
+  readonly departmentFilter = signal('');
   readonly page = signal(1);
   readonly pageSize = signal(10);
 
+  readonly departments = computed(() => {
+    const items = this.store.employees();
+    return Array.from(new Set(items.map((e) => e.department))).sort((a, b) => a.localeCompare(b, 'vi'));
+  });
+
   readonly allRows$ = this.route.queryParamMap.pipe(
-    map((q) => (q.get('status') as EmployeeStatus | null) ?? ''),
-    map((status) => {
-      this.statusFilter.set(status);
+    map((q) => ({
+      status: (q.get('status') as EmployeeStatus | null) ?? '',
+      department: q.get('department') ?? ''
+    })),
+    map(({ status, department }) => {
+      const normalizedStatus = status as EmployeeStatus | '';
+      this.statusFilter.set(normalizedStatus);
+      this.departmentFilter.set(department);
       this.page.set(1);
-      return status;
+      return { status: normalizedStatus, department };
     }),
-    switchMap((status) => this.store.list({ status }))
+    switchMap(({ status, department }) => this.store.list({ status: status || undefined, department: department || undefined }))
   );
 
   readonly totalRows$ = this.allRows$.pipe(map((rows) => rows.length));
@@ -193,7 +215,22 @@ export class EmployeeProfilesComponent {
     const status = (next as EmployeeStatus | '') ?? '';
     this.statusFilter.set(status);
     this.page.set(1);
-    void this.router.navigate([], { relativeTo: this.route, queryParams: { status: status || null }, queryParamsHandling: 'merge' });
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { status: status || null },
+      queryParamsHandling: 'merge'
+    });
+  }
+
+  onDepartmentChange(next: string): void {
+    const department = next.trim();
+    this.departmentFilter.set(department);
+    this.page.set(1);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { department: department || null },
+      queryParamsHandling: 'merge'
+    });
   }
 
   goToPage(p: number): void {

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
 import type { ChartConfiguration, ChartEvent } from 'chart.js';
@@ -13,12 +13,62 @@ type WidgetAction = 'settings' | 'details' | 'print';
   imports: [BaseChartDirective, LucideAngularModule],
   template: `
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <article class="rounded-sm border border-slate-200 bg-white p-3 xl:col-span-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-semibold text-slate-900">Tổng quan theo phòng ban</h3>
+            <p class="text-xs text-slate-500">Chọn phòng ban để xem số liệu tổng hợp.</p>
+          </div>
+          <select
+            class="h-9 rounded border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-500"
+            [value]="selectedDepartment()"
+            (change)="onDepartmentChange($any($event.target).value)"
+          >
+            <option value="">Tất cả phòng ban</option>
+            @for (department of departments(); track department) {
+              <option [value]="department">{{ department }}</option>
+            }
+          </select>
+        </div>
+        <div class="mt-4 overflow-auto rounded border border-slate-200">
+          <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th class="px-3 py-2">Phòng ban</th>
+                <th class="px-3 py-2">Tổng nhân sự</th>
+                <th class="px-3 py-2">Chính thức</th>
+                <th class="px-3 py-2">Thử việc</th>
+                <th class="px-3 py-2">Thực tập</th>
+                <th class="px-3 py-2">Khác</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+              @for (row of overviewRows(); track row.department) {
+                <tr class="hover:bg-slate-50">
+                  <td class="px-3 py-2 font-medium text-slate-900">{{ row.department }}</td>
+                  <td class="px-3 py-2 text-slate-700">{{ row.total }}</td>
+                  <td class="px-3 py-2 text-slate-700">{{ row.active }}</td>
+                  <td class="px-3 py-2 text-slate-700">{{ row.probation }}</td>
+                  <td class="px-3 py-2 text-slate-700">{{ row.intern }}</td>
+                  <td class="px-3 py-2 text-slate-700">{{ row.other }}</td>
+                </tr>
+              }
+              @if (overviewRows().length === 0) {
+                <tr>
+                  <td colspan="6" class="px-3 py-6 text-center text-sm text-slate-500">Không có dữ liệu.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </article>
+
       <!-- Row 1 -->
       <article class="rounded-sm border border-slate-200 bg-white p-3">
         <div class="flex items-center justify-between">
           <div>
-            <h3 class="text-sm font-semibold text-slate-900">Thống kê nhân sự</h3>
-            <p class="text-xs text-slate-500">Phòng ban: A</p>
+            <h3 class="text-sm font-semibold text-slate-900">Thống kê nhân sự theo trạng thái</h3>
+            <p class="text-xs text-slate-500">Phân bổ tổng thể hiện tại.</p>
           </div>
           <div class="flex items-center gap-2 text-slate-500">
             <button class="rounded p-1 hover:bg-slate-100" type="button" (click)="onAction('settings')">
@@ -269,6 +319,28 @@ export class HrmDashboardComponent {
   private readonly router = inject(Router);
   private readonly store = inject(EmployeesMockStore);
 
+  readonly selectedDepartment = signal('');
+  readonly departments = computed(() => {
+    const items = this.store.employees();
+    return Array.from(new Set(items.map((e) => e.department))).sort((a, b) => a.localeCompare(b, 'vi'));
+  });
+  readonly overviewRows = computed(() => {
+    const selected = this.selectedDepartment();
+    const departments = selected ? [selected] : this.departments();
+    const rows = departments.map((department) => {
+      const items = this.store.employees().filter((e) => e.department === department);
+      return {
+        department,
+        total: items.length,
+        active: items.filter((e) => e.status === 'active').length,
+        probation: items.filter((e) => e.status === 'probation').length,
+        intern: items.filter((e) => e.status === 'intern').length,
+        other: items.filter((e) => !['active', 'probation', 'intern'].includes(e.status)).length
+      };
+    });
+    return rows.sort((a, b) => a.department.localeCompare(b.department, 'vi'));
+  });
+
   readonly total = this.store.total;
 
   readonly doughnutType = 'doughnut' as const;
@@ -431,6 +503,10 @@ export class HrmDashboardComponent {
       }
     ]
   };
+
+  onDepartmentChange(next: string): void {
+    this.selectedDepartment.set(next.trim());
+  }
 
   onStatusChartClick(evt: { event?: ChartEvent; active?: Array<unknown> }): void {
     const active = (evt.active ?? []) as Array<{ index?: number }>;
