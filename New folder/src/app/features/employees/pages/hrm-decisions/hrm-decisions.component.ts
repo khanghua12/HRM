@@ -224,10 +224,10 @@ export class HrmDecisionsComponent {
   }
 
   approve(id: string): void {
-    this.store.updateStatus(id, 'approved');
+    void this.store.updateStatus(id, 'approved').subscribe();
   }
   reject(id: string): void {
-    this.store.updateStatus(id, 'rejected');
+    void this.store.updateStatus(id, 'rejected').subscribe();
   }
 
   submitCreate(): void {

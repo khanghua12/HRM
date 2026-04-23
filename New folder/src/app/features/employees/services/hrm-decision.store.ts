@@ -1,31 +1,21 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, map, of } from 'rxjs';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 import type { HrmDecision, HrmDecisionStatus, HrmDecisionType } from '../models/hrm-decision.model';
 
-type DecisionFilter = {
-  q?: string;
-  type?: HrmDecisionType | '';
-  status?: HrmDecisionStatus | '';
-};
+type DecisionFilter = { q?: string; type?: HrmDecisionType | ''; status?: HrmDecisionStatus | '' };
 
 @Injectable({ providedIn: 'root' })
 export class HrmDecisionStore {
-  private readonly _items$ = new BehaviorSubject<HrmDecision[]>(seed());
-  readonly items$ = this._items$.asObservable();
+  private readonly http = inject(HttpClient);
 
   list(filter: DecisionFilter = {}): Observable<HrmDecision[]> {
-    return this.items$.pipe(
+    return this.http.get<HrmDecision[]>(`${environment.apiBaseUrl}/decisions`).pipe(
       map((rows) => {
         let out = rows;
         const q = (filter.q ?? '').trim().toLowerCase();
-        if (q) {
-          out = out.filter(
-            (x) =>
-              x.code.toLowerCase().includes(q) ||
-              x.employeeName.toLowerCase().includes(q) ||
-              typeLabel(x.type).toLowerCase().includes(q)
-          );
-        }
+        if (q) out = out.filter((x) => x.code.toLowerCase().includes(q) || x.employeeName.toLowerCase().includes(q));
         if (filter.type) out = out.filter((x) => x.type === filter.type);
         if (filter.status) out = out.filter((x) => x.status === filter.status);
         return out;
@@ -34,70 +24,10 @@ export class HrmDecisionStore {
   }
 
   create(input: Omit<HrmDecision, 'id' | 'createdAt'>): Observable<HrmDecision> {
-    const item: HrmDecision = {
-      ...input,
-      id: cryptoId(),
-      createdAt: new Date().toISOString()
-    };
-    this._items$.next([item, ...this._items$.value]);
-    return of(item);
+    return this.http.post<HrmDecision>(`${environment.apiBaseUrl}/decisions`, input);
   }
 
-  updateStatus(id: string, status: HrmDecisionStatus): void {
-    this._items$.next(this._items$.value.map((x) => (x.id === id ? { ...x, status } : x)));
+  updateStatus(id: string, status: HrmDecisionStatus): Observable<{ ok: boolean }> {
+    return this.http.patch<{ ok: boolean }>(`${environment.apiBaseUrl}/decisions/${id}/status`, { status });
   }
 }
-
-function seed(): HrmDecision[] {
-  return [
-    {
-      id: 'DEC-001',
-      code: 'QD-0001',
-      type: 'transfer',
-      employeeId: 'EMP-001',
-      employeeName: 'Nhân viên 1',
-      departmentFrom: 'Phòng ban A',
-      departmentTo: 'Phòng ban B',
-      titleFrom: 'Chuyên viên',
-      titleTo: 'Chuyên viên',
-      effectiveDate: isoPlus(5),
-      status: 'pending',
-      createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      note: 'Điều động theo nhu cầu dự án.'
-    },
-    {
-      id: 'DEC-002',
-      code: 'QD-0002',
-      type: 'appoint',
-      employeeId: 'EMP-004',
-      employeeName: 'Nhân viên 4',
-      departmentFrom: 'Phòng ban A',
-      departmentTo: 'Phòng ban A',
-      titleFrom: 'Chuyên viên',
-      titleTo: 'Tổ trưởng',
-      effectiveDate: isoPlus(1),
-      status: 'approved',
-      createdAt: new Date(Date.now() - 86400000 * 6).toISOString()
-    }
-  ];
-}
-
-function typeLabel(t: HrmDecisionType): string {
-  const m: Record<HrmDecisionType, string> = {
-    transfer: 'Điều động',
-    appoint: 'Bổ nhiệm',
-    discipline: 'Kỷ luật',
-    reward: 'Khen thưởng',
-    'salary-adjustment': 'Điều chỉnh lương'
-  };
-  return m[t] ?? t;
-}
-
-function isoPlus(days: number): string {
-  return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
-}
-
-function cryptoId(): string {
-  return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `ID-${Date.now()}`;
-}
-

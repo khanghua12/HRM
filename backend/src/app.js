@@ -95,6 +95,21 @@ const accountUpsertSchema = z.object({
   menuPermissions: z.array(z.enum(allowedMenuKeys)).min(1)
 });
 
+const payrollCreateSchema = z.object({
+  employeeId: z.string().min(1),
+  period: z.string().regex(/^\d{4}-\d{2}$/),
+  grossSalary: z.number().positive(),
+  status: z.enum(['draft', 'confirmed', 'paid']).default('draft')
+});
+
+function ensureMySql(req, res) {
+  if (!db.isMySqlEnabled()) {
+    res.status(503).json({ message: 'Hệ thống yêu cầu bật USE_MYSQL=true.' });
+    return false;
+  }
+  return true;
+}
+
 app.get('/api/health', async (req, res) => {
   const mysql = await db.ping();
   res.json({ ok: true, service: 'hrm-backend', at: new Date().toISOString(), mysql });
@@ -106,9 +121,7 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ message: 'Dữ liệu đăng nhập không hợp lệ.' });
   }
 
-  if (!db.isMySqlEnabled()) {
-    return res.status(503).json({ message: 'Hệ thống yêu cầu bật USE_MYSQL=true để đăng nhập.' });
-  }
+  if (!ensureMySql(req, res)) return;
 
   const { email, password } = parsed.data;
   const normalizedEmail = email.trim().toLowerCase();
@@ -132,12 +145,10 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.get('/api/employees', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+
   const status = String(req.query.status || '').trim();
   const department = String(req.query.department || '').trim();
-
-  if (!db.isMySqlEnabled()) {
-    return res.status(503).json({ message: 'Hệ thống yêu cầu bật USE_MYSQL=true.' });
-  }
 
   try {
     const rows = await db.listEmployees({ status, department });
@@ -149,9 +160,7 @@ app.get('/api/employees', async (req, res) => {
 });
 
 app.post('/api/employees', async (req, res) => {
-  if (!db.isMySqlEnabled()) {
-    return res.status(503).json({ message: 'Hệ thống yêu cầu bật USE_MYSQL=true.' });
-  }
+  if (!ensureMySql(req, res)) return;
 
   const parsed = employeeCreateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -188,9 +197,7 @@ app.post('/api/employees', async (req, res) => {
 });
 
 app.put('/api/employees/:id', async (req, res) => {
-  if (!db.isMySqlEnabled()) {
-    return res.status(503).json({ message: 'Hệ thống yêu cầu bật USE_MYSQL=true.' });
-  }
+  if (!ensureMySql(req, res)) return;
 
   const parsed = employeeCreateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -212,9 +219,7 @@ app.put('/api/employees/:id', async (req, res) => {
       objectType: payload.objectType
     });
 
-    if (!updated) {
-      return res.status(404).json({ message: 'Không tìm thấy nhân viên.' });
-    }
+    if (!updated) return res.status(404).json({ message: 'Không tìm thấy nhân viên.' });
 
     return res.json(updated);
   } catch (error) {
@@ -224,9 +229,7 @@ app.put('/api/employees/:id', async (req, res) => {
 });
 
 app.get('/api/employees/managers', async (req, res) => {
-  if (!db.isMySqlEnabled()) {
-    return res.status(503).json({ message: 'Hệ thống yêu cầu bật USE_MYSQL=true.' });
-  }
+  if (!ensureMySql(req, res)) return;
 
   const q = String(req.query.q || '').trim();
   try {
@@ -239,9 +242,7 @@ app.get('/api/employees/managers', async (req, res) => {
 });
 
 app.get('/api/employees/:id', async (req, res) => {
-  if (!db.isMySqlEnabled()) {
-    return res.status(503).json({ message: 'Hệ thống yêu cầu bật USE_MYSQL=true.' });
-  }
+  if (!ensureMySql(req, res)) return;
 
   try {
     const item = await db.getEmployeeById(req.params.id);
@@ -254,9 +255,7 @@ app.get('/api/employees/:id', async (req, res) => {
 });
 
 app.get('/api/employees/:id/account', async (req, res) => {
-  if (!db.isMySqlEnabled()) {
-    return res.status(503).json({ message: 'Hệ thống yêu cầu bật USE_MYSQL=true.' });
-  }
+  if (!ensureMySql(req, res)) return;
 
   try {
     const account = await db.getEmployeeAccount(req.params.id);
@@ -271,9 +270,7 @@ app.get('/api/employees/:id/account', async (req, res) => {
 });
 
 app.post('/api/employees/:id/account', async (req, res) => {
-  if (!db.isMySqlEnabled()) {
-    return res.status(503).json({ message: 'Hệ thống yêu cầu bật USE_MYSQL=true.' });
-  }
+  if (!ensureMySql(req, res)) return;
 
   const parsed = accountUpsertSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -289,6 +286,69 @@ app.post('/api/employees/:id/account', async (req, res) => {
   }
 });
 
+app.get('/api/recruitment/jobs', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listJobs();
+    return res.json(rows);
+  } catch (error) {
+    console.error('List recruitment jobs failed:', error);
+    return res.status(500).json({ message: 'Lỗi truy vấn danh sách tin tuyển dụng.' });
+  }
+});
+
+app.get('/api/recruitment/candidates', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listCandidates();
+    return res.json(rows);
+  } catch (error) {
+    console.error('List recruitment candidates failed:', error);
+    return res.status(500).json({ message: 'Lỗi truy vấn danh sách ứng viên.' });
+  }
+});
+
+app.get('/api/payroll/records', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listPayrolls();
+    return res.json(rows);
+  } catch (error) {
+    console.error('List payroll records failed:', error);
+    return res.status(500).json({ message: 'Lỗi truy vấn dữ liệu bảng lương.' });
+  }
+});
+
+app.post('/api/payroll/records', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+
+  const parsed = payrollCreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ message: 'Dữ liệu tạo bảng lương không hợp lệ.' });
+  }
+
+  const payload = parsed.data;
+  const computed = calculatePayroll(payload.grossSalary);
+
+  try {
+    const row = await db.createPayroll({
+      id: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      employeeId: payload.employeeId,
+      period: payload.period,
+      grossSalary: computed.grossSalary,
+      insuranceTotal: computed.insurance.total,
+      personalIncomeTax: computed.personalIncomeTax,
+      netSalary: computed.netSalary,
+      status: payload.status
+    });
+
+    return res.status(201).json(row);
+  } catch (error) {
+    console.error('Create payroll record failed:', error);
+    return res.status(500).json({ message: 'Lỗi tạo dữ liệu bảng lương.' });
+  }
+});
+
 app.post('/api/payroll/calculate', (req, res) => {
   const schema = z.object({ grossSalary: z.number().positive() });
   const parsed = schema.safeParse(req.body);
@@ -297,6 +357,333 @@ app.post('/api/payroll/calculate', (req, res) => {
   }
 
   return res.json(calculatePayroll(parsed.data.grossSalary));
+});
+
+app.get('/api/performance/reviews', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listPerformanceReviews();
+    return res.json(rows);
+  } catch (error) {
+    console.error('List performance reviews failed:', error);
+    return res.status(500).json({ message: 'Lỗi truy vấn dữ liệu đánh giá.' });
+  }
+});
+
+app.get('/api/work/tasks', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listWorkTasks();
+    return res.json(rows);
+  } catch (error) {
+    console.error('List work tasks failed:', error);
+    return res.status(500).json({ message: 'Lỗi truy vấn công việc.' });
+  }
+});
+
+app.get('/api/training/courses', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listTrainingCourses();
+    return res.json(rows);
+  } catch (error) {
+    console.error('List training courses failed:', error);
+    return res.status(500).json({ message: 'Lỗi truy vấn khoá đào tạo.' });
+  }
+});
+
+app.get('/api/forms/requests', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listFormRequests();
+    return res.json(rows);
+  } catch (error) {
+    console.error('List form requests failed:', error);
+    return res.status(500).json({ message: 'Lỗi truy vấn biểu mẫu.' });
+  }
+});
+
+app.get('/api/benefits/plans', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listBenefitPlans();
+    return res.json(rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi truy vấn gói phúc lợi.' });
+  }
+});
+
+app.post('/api/benefits/plans', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  const schema = z.object({
+    name: z.string().min(1),
+    category: z.enum(['insurance', 'meal', 'allowance', 'health', 'other']),
+    monthlyBudget: z.number().nonnegative(),
+    enabled: z.boolean()
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Dữ liệu gói phúc lợi không hợp lệ.' });
+  try {
+    const row = await db.createBenefitPlan({ id: `BEN-${Date.now()}`, ...parsed.data });
+    return res.status(201).json(row);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi tạo gói phúc lợi.' });
+  }
+});
+
+app.get('/api/benefits/claims', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listBenefitClaims();
+    return res.json(rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi truy vấn claim phúc lợi.' });
+  }
+});
+
+app.patch('/api/benefits/claims/:id/status', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  const schema = z.object({ status: z.enum(['new', 'processing', 'approved', 'rejected', 'paid']) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Trạng thái claim không hợp lệ.' });
+  try {
+    await db.updateBenefitClaimStatus(req.params.id, parsed.data.status);
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi cập nhật trạng thái claim.' });
+  }
+});
+
+app.get('/api/offboarding', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listOffboarding();
+    return res.json(rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi truy vấn offboarding.' });
+  }
+});
+
+app.post('/api/offboarding', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  const schema = z.object({
+    employeeId: z.string().min(1),
+    employeeName: z.string().min(1),
+    department: z.string().min(1),
+    lastWorkingDate: z.string().min(1),
+    reason: z.enum(['resign', 'terminate', 'retire', 'contract-end', 'other']),
+    status: z.enum(['initiated', 'handover', 'clearance', 'completed', 'cancelled']),
+    handoverOwner: z.string().nullable().optional()
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Dữ liệu offboarding không hợp lệ.' });
+  try {
+    const row = await db.createOffboarding({ id: `OFF-${Date.now()}`, ...parsed.data });
+    return res.status(201).json(row);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi tạo offboarding.' });
+  }
+});
+
+app.patch('/api/offboarding/:id/status', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  const schema = z.object({ status: z.enum(['initiated', 'handover', 'clearance', 'completed', 'cancelled']) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Trạng thái offboarding không hợp lệ.' });
+  try {
+    await db.updateOffboardingStatus(req.params.id, parsed.data.status);
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi cập nhật trạng thái offboarding.' });
+  }
+});
+
+app.get('/api/decisions', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listDecisions();
+    return res.json(rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi truy vấn quyết định.' });
+  }
+});
+
+app.post('/api/decisions', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  const schema = z.object({
+    code: z.string().min(1),
+    type: z.enum(['transfer', 'appoint', 'discipline', 'reward', 'salary-adjustment']),
+    employeeId: z.string().min(1),
+    employeeName: z.string().min(1),
+    departmentFrom: z.string().nullable().optional(),
+    departmentTo: z.string().nullable().optional(),
+    titleFrom: z.string().nullable().optional(),
+    titleTo: z.string().nullable().optional(),
+    effectiveDate: z.string().min(1),
+    status: z.enum(['draft', 'pending', 'approved', 'rejected', 'effective']),
+    note: z.string().nullable().optional()
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Dữ liệu quyết định không hợp lệ.' });
+  try {
+    const row = await db.createDecision({ id: `DEC-${Date.now()}`, ...parsed.data });
+    return res.status(201).json(row);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi tạo quyết định.' });
+  }
+});
+
+app.patch('/api/decisions/:id/status', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  const schema = z.object({ status: z.enum(['draft', 'pending', 'approved', 'rejected', 'effective']) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Trạng thái quyết định không hợp lệ.' });
+  try {
+    await db.updateDecisionStatus(req.params.id, parsed.data.status);
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi cập nhật trạng thái quyết định.' });
+  }
+});
+
+app.get('/api/reports', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listReports();
+    return res.json(rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi truy vấn báo cáo.' });
+  }
+});
+
+app.post('/api/reports/:id/run', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const row = await db.runReport(req.params.id);
+    return res.json({ ok: true, at: row?.lastRunAt || new Date().toISOString() });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi chạy báo cáo.' });
+  }
+});
+
+app.get('/api/settings/departments', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listDepartments(String(req.query.q || ''));
+    return res.json(rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi truy vấn phòng ban.' });
+  }
+});
+
+app.post('/api/settings/departments', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  const schema = z.object({ code: z.string().min(1), name: z.string().min(1), active: z.boolean() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Dữ liệu phòng ban không hợp lệ.' });
+  try {
+    const row = await db.createDepartment({ id: `DEP-${Date.now()}`, ...parsed.data });
+    return res.status(201).json(row);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi tạo phòng ban.' });
+  }
+});
+
+app.patch('/api/settings/departments/:id/toggle', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    await db.toggleDepartment(req.params.id);
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi đổi trạng thái phòng ban.' });
+  }
+});
+
+app.get('/api/settings/titles', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listTitles();
+    return res.json(rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi truy vấn chức danh.' });
+  }
+});
+
+app.post('/api/settings/titles', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  const schema = z.object({ name: z.string().min(1), active: z.boolean() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Dữ liệu chức danh không hợp lệ.' });
+  try {
+    const row = await db.createTitle({ id: `TTL-${Date.now()}`, ...parsed.data });
+    return res.status(201).json(row);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi tạo chức danh.' });
+  }
+});
+
+app.patch('/api/settings/titles/:id/toggle', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    await db.toggleTitle(req.params.id);
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi đổi trạng thái chức danh.' });
+  }
+});
+
+app.get('/api/settings/workplaces', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    const rows = await db.listWorkplaces();
+    return res.json(rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi truy vấn nơi làm việc.' });
+  }
+});
+
+app.post('/api/settings/workplaces', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  const schema = z.object({ name: z.string().min(1), active: z.boolean() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: 'Dữ liệu nơi làm việc không hợp lệ.' });
+  try {
+    const row = await db.createWorkplace({ id: `WPL-${Date.now()}`, ...parsed.data });
+    return res.status(201).json(row);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi tạo nơi làm việc.' });
+  }
+});
+
+app.patch('/api/settings/workplaces/:id/toggle', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+  try {
+    await db.toggleWorkplace(req.params.id);
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi đổi trạng thái nơi làm việc.' });
+  }
 });
 
 app.use((req, res) => {

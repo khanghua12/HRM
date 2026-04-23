@@ -1,67 +1,42 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, map, of } from 'rxjs';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, map } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 import type { DepartmentSetting, TitleSetting, WorkplaceSetting } from '../models/hrm-settings.model';
 
 @Injectable({ providedIn: 'root' })
 export class HrmSettingsStore {
-  private readonly _departments$ = new BehaviorSubject<DepartmentSetting[]>([
-    { id: 'DEP-001', code: 'PB-A', name: 'Phòng ban A', active: true },
-    { id: 'DEP-002', code: 'PB-B', name: 'Phòng ban B', active: true },
-    { id: 'DEP-003', code: 'PB-C', name: 'Phòng ban C', active: false }
-  ]);
-  private readonly _titles$ = new BehaviorSubject<TitleSetting[]>([
-    { id: 'TTL-001', name: 'Chuyên viên', active: true },
-    { id: 'TTL-002', name: 'Tổ trưởng', active: true },
-    { id: 'TTL-003', name: 'Quản lý', active: true }
-  ]);
-  private readonly _workplaces$ = new BehaviorSubject<WorkplaceSetting[]>([
-    { id: 'WPL-001', name: 'Văn phòng A', active: true },
-    { id: 'WPL-002', name: 'Văn phòng B', active: true }
-  ]);
+  private readonly http = inject(HttpClient);
 
-  readonly departments$ = this._departments$.asObservable();
-  readonly titles$ = this._titles$.asObservable();
-  readonly workplaces$ = this._workplaces$.asObservable();
+  readonly titles$ = this.http.get<TitleSetting[]>(`${environment.apiBaseUrl}/settings/titles`);
+  readonly workplaces$ = this.http.get<WorkplaceSetting[]>(`${environment.apiBaseUrl}/settings/workplaces`);
 
   listDepartments(q: string): Observable<DepartmentSetting[]> {
-    const needle = q.trim().toLowerCase();
-    return this.departments$.pipe(
-      map((rows) => (needle ? rows.filter((x) => x.name.toLowerCase().includes(needle) || x.code.toLowerCase().includes(needle)) : rows))
-    );
+    const params = q.trim() ? { q: q.trim() } : {};
+    return this.http.get<DepartmentSetting[]>(`${environment.apiBaseUrl}/settings/departments`, { params });
   }
 
   addDepartment(input: Omit<DepartmentSetting, 'id'>): Observable<DepartmentSetting> {
-    const item: DepartmentSetting = { ...input, id: id() };
-    this._departments$.next([item, ...this._departments$.value]);
-    return of(item);
+    return this.http.post<DepartmentSetting>(`${environment.apiBaseUrl}/settings/departments`, input);
   }
 
-  toggleDepartment(id0: string): void {
-    this._departments$.next(this._departments$.value.map((x) => (x.id === id0 ? { ...x, active: !x.active } : x)));
+  toggleDepartment(id0: string): Observable<{ ok: boolean }> {
+    return this.http.patch<{ ok: boolean }>(`${environment.apiBaseUrl}/settings/departments/${id0}/toggle`, {});
   }
 
   addTitle(input: Omit<TitleSetting, 'id'>): Observable<TitleSetting> {
-    const item: TitleSetting = { ...input, id: id() };
-    this._titles$.next([item, ...this._titles$.value]);
-    return of(item);
+    return this.http.post<TitleSetting>(`${environment.apiBaseUrl}/settings/titles`, input);
   }
 
-  toggleTitle(id0: string): void {
-    this._titles$.next(this._titles$.value.map((x) => (x.id === id0 ? { ...x, active: !x.active } : x)));
+  toggleTitle(id0: string): Observable<{ ok: boolean }> {
+    return this.http.patch<{ ok: boolean }>(`${environment.apiBaseUrl}/settings/titles/${id0}/toggle`, {});
   }
 
   addWorkplace(input: Omit<WorkplaceSetting, 'id'>): Observable<WorkplaceSetting> {
-    const item: WorkplaceSetting = { ...input, id: id() };
-    this._workplaces$.next([item, ...this._workplaces$.value]);
-    return of(item);
+    return this.http.post<WorkplaceSetting>(`${environment.apiBaseUrl}/settings/workplaces`, input);
   }
 
-  toggleWorkplace(id0: string): void {
-    this._workplaces$.next(this._workplaces$.value.map((x) => (x.id === id0 ? { ...x, active: !x.active } : x)));
+  toggleWorkplace(id0: string): Observable<{ ok: boolean }> {
+    return this.http.patch<{ ok: boolean }>(`${environment.apiBaseUrl}/settings/workplaces/${id0}/toggle`, {});
   }
 }
-
-function id(): string {
-  return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `ID-${Date.now()}`;
-}
-

@@ -187,7 +187,7 @@ export class OffboardingComponent {
     const flow: OffboardingStatus[] = ['initiated', 'handover', 'clearance', 'completed'];
     const idx = flow.indexOf(st);
     const next = idx >= 0 && idx < flow.length - 1 ? flow[idx + 1] : st;
-    this.store.updateStatus(id, next);
+    void this.store.updateStatus(id, next).subscribe();
   }
 
   statusLabel(s: OffboardingStatus): string {

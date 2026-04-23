@@ -261,13 +261,13 @@ export class SettingsComponent {
   }
 
   toggleDepartment(id: string): void {
-    this.store.toggleDepartment(id);
+    void this.store.toggleDepartment(id).subscribe();
   }
   toggleTitle(id: string): void {
-    this.store.toggleTitle(id);
+    void this.store.toggleTitle(id).subscribe();
   }
   toggleWorkplace(id: string): void {
-    this.store.toggleWorkplace(id);
+    void this.store.toggleWorkplace(id).subscribe();
   }
 }
 

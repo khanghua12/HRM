@@ -267,7 +267,7 @@ export class BenefitsComponent {
   }
 
   setClaim(id: string, status: BenefitClaimStatus): void {
-    this.store.setClaimStatus(id, status);
+    void this.store.setClaimStatus(id, status).subscribe();
   }
 
   categoryLabel(c: BenefitCategory): string {
