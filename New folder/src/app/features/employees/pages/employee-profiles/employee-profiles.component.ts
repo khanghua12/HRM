@@ -6,7 +6,7 @@ import { combineLatest, map, switchMap } from 'rxjs';
 import { StatusBadgePipe } from '../../../../shared/pipes/status-badge.pipe';
 import { EmployeeStatusLabelPipe } from '../../../../shared/pipes/employee-status-label.pipe';
 import type { EmployeeStatus } from '../../models/employee-summary.model';
-import { EmployeesMockStore } from '../../services/employees-mock.store';
+import { EmployeesStore } from '../../services/employees-mock.store';
 
 @Component({
   selector: 'app-employee-profiles',
@@ -20,6 +20,14 @@ import { EmployeesMockStore } from '../../services/employees-mock.store';
           <p class="mt-1 text-xs text-slate-500">Danh sách hồ sơ theo bộ lọc từ Dashboard.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="h-9 rounded bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-500"
+            (click)="createEmployee()"
+          >
+            + Tạo nhân viên mới
+          </button>
+
           <select
             class="h-9 rounded border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-500"
             [value]="statusFilter()"
@@ -153,7 +161,7 @@ import { EmployeesMockStore } from '../../services/employees-mock.store';
 export class EmployeeProfilesComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly store = inject(EmployeesMockStore);
+  private readonly store = inject(EmployeesStore);
 
   readonly statusFilter = signal<EmployeeStatus | ''>('');
   readonly departmentFilter = signal('');
@@ -242,6 +250,10 @@ export class EmployeeProfilesComponent {
     const size = Number.isFinite(next) && next > 0 ? next : 10;
     this.pageSize.set(size);
     this.page.set(1);
+  }
+
+  createEmployee(): void {
+    void this.router.navigate(['/employees/ho-so/new'], { queryParamsHandling: 'preserve' });
   }
 }
 

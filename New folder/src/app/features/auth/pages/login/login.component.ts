@@ -94,17 +94,17 @@ export class LoginComponent {
     private readonly router: Router
   ) {}
 
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     this.error.set(null);
     if (!this.email.trim() || !this.password) {
       this.error.set('Vui lòng nhập email và mật khẩu.');
       return;
     }
     this.submitting.set(true);
-    const result = this.auth.login(this.email, this.password);
+    const result = await this.auth.login(this.email, this.password);
     this.submitting.set(false);
     if (result.ok) {
-      void this.router.navigateByUrl('/');
+      await this.router.navigateByUrl('/');
       return;
     }
     this.error.set(result.message);

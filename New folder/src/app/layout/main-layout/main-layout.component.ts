@@ -1,17 +1,19 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
-import { AuthService } from '../../core/services/auth.service';
+import { AuthService, type MenuKey } from '../../core/services/auth.service';
+
+interface NavItem {
+  path: string;
+  label: string;
+  icon: string;
+  key: MenuKey;
+}
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [
-    RouterLink,
-    RouterLinkActive,
-    RouterOutlet,
-    LucideAngularModule
-  ],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, LucideAngularModule],
   template: `
     <div class="h-screen overflow-hidden bg-slate-50 text-slate-900">
       <div class="flex h-full min-h-0">
@@ -19,7 +21,7 @@ import { AuthService } from '../../core/services/auth.service';
           <h1 class="mb-1 text-xl font-bold text-indigo-600">HRM Suite</h1>
           <p class="mb-4 text-xs text-slate-500">Vận hành nguồn lực doanh nghiệp</p>
           <nav class="space-y-2 pr-1">
-            @for (item of navItems; track item.path) {
+            @for (item of visibleNavItems(); track item.path) {
               <a
                 [routerLink]="item.path"
                 routerLinkActive="bg-indigo-50 text-indigo-700"
@@ -40,14 +42,9 @@ import { AuthService } from '../../core/services/auth.service';
             <div class="flex items-center gap-3">
               <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                 <lucide-icon name="search" class="h-4 w-4 text-slate-500"></lucide-icon>
-                <input
-                  class="w-52 border-0 bg-transparent text-sm outline-none"
-                  placeholder="Tìm nhân viên..."
-                />
+                <input class="w-52 border-0 bg-transparent text-sm outline-none" placeholder="Tìm nhân viên..." />
               </label>
-              <button
-                class="relative rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50"
-              >
+              <button class="relative rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50">
                 <lucide-icon name="bell" class="h-4 w-4"></lucide-icon>
                 <span class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-rose-500"></span>
               </button>
@@ -77,15 +74,17 @@ export class MainLayoutComponent {
   readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
-  readonly navItems = [
-    { path: '/employees', label: 'Nhân viên', icon: 'users' },
-    { path: '/recruitment', label: 'Tuyển dụng', icon: 'briefcase' },
-    { path: '/payroll', label: 'Lương', icon: 'wallet' },
-    { path: '/performance', label: 'Hiệu suất & KPI', icon: 'chart-column' },
-    { path: '/work', label: 'Công việc', icon: 'clipboard-list' },
-    { path: '/training', label: 'Đào tạo', icon: 'graduation-cap' },
-    { path: '/forms', label: 'Mẫu đơn', icon: 'info' }
+  readonly navItems: NavItem[] = [
+    { path: '/employees', label: 'Nhân viên', icon: 'users', key: 'employees' },
+    { path: '/recruitment', label: 'Tuyển dụng', icon: 'briefcase', key: 'recruitment' },
+    { path: '/payroll', label: 'Lương', icon: 'wallet', key: 'payroll' },
+    { path: '/performance', label: 'Hiệu suất & KPI', icon: 'chart-column', key: 'performance' },
+    { path: '/work', label: 'Công việc', icon: 'clipboard-list', key: 'work' },
+    { path: '/training', label: 'Đào tạo', icon: 'graduation-cap', key: 'training' },
+    { path: '/forms', label: 'Mẫu đơn', icon: 'info', key: 'forms' }
   ];
+
+  readonly visibleNavItems = computed(() => this.navItems.filter((item) => this.auth.canAccessMenu(item.key)));
 
   signOut(): void {
     this.auth.logout();

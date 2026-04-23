@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
 import type { ChartConfiguration, ChartEvent } from 'chart.js';
 import { LucideAngularModule } from 'lucide-angular';
-import { EmployeesMockStore } from '../../services/employees-mock.store';
+import { EmployeesStore } from '../../services/employees-mock.store';
 
 type WidgetAction = 'settings' | 'details' | 'print';
 
@@ -317,7 +317,7 @@ type WidgetAction = 'settings' | 'details' | 'print';
 })
 export class HrmDashboardComponent {
   private readonly router = inject(Router);
-  private readonly store = inject(EmployeesMockStore);
+  private readonly store = inject(EmployeesStore);
 
   readonly selectedDepartment = signal('');
   readonly departments = computed(() => {

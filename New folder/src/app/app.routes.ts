@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
+import { menuPermissionGuard } from './core/guards/menu-permission.guard';
 
 export const appRoutes: Routes = [
   {
@@ -17,36 +18,50 @@ export const appRoutes: Routes = [
     children: [
       {
         path: 'employees',
+        canActivate: [menuPermissionGuard],
+        data: { menu: 'employees' },
         loadChildren: () =>
           import('./features/employees/employees.routes').then((m) => m.EMPLOYEES_ROUTES)
       },
       {
         path: 'recruitment',
+        canActivate: [menuPermissionGuard],
+        data: { menu: 'recruitment' },
         loadChildren: () =>
           import('./features/recruitment/recruitment.routes').then((m) => m.RECRUITMENT_ROUTES)
       },
       {
         path: 'payroll',
+        canActivate: [menuPermissionGuard],
+        data: { menu: 'payroll' },
         loadChildren: () =>
           import('./features/payroll/payroll.routes').then((m) => m.PAYROLL_ROUTES)
       },
       {
         path: 'performance',
+        canActivate: [menuPermissionGuard],
+        data: { menu: 'performance' },
         loadChildren: () =>
           import('./features/performance/performance.routes').then((m) => m.PERFORMANCE_ROUTES)
       },
       {
         path: 'work',
+        canActivate: [menuPermissionGuard],
+        data: { menu: 'work' },
         loadChildren: () =>
           import('./features/work/work.routes').then((m) => m.WORK_ROUTES)
       },
       {
         path: 'training',
+        canActivate: [menuPermissionGuard],
+        data: { menu: 'training' },
         loadChildren: () =>
           import('./features/training/training.routes').then((m) => m.TRAINING_ROUTES)
       },
       {
         path: 'forms',
+        canActivate: [menuPermissionGuard],
+        data: { menu: 'forms' },
         loadChildren: () =>
           import('./features/forms/forms.routes').then((m) => m.FORMS_ROUTES)
       },
