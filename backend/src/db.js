@@ -3,6 +3,8 @@ const mysql = require('mysql2/promise');
 const useMySql = String(process.env.USE_MYSQL || 'false').toLowerCase() === 'true';
 
 let pool = null;
+let workTaskColumnsEnsured = false;
+let workTaskExtraEnsured = false;
 
 function isMySqlEnabled() {
   return useMySql;
@@ -28,11 +30,82 @@ function getPool() {
   return pool;
 }
 
-async function query(sql, params = {}) {
+async function query(sql, params = {}, retried = false) {
   const p = getPool();
   if (!p) throw new Error('USE_MYSQL=false');
-  const [rows] = await p.execute(sql, params);
-  return rows;
+
+  try {
+    const [rows] = await p.execute(sql, params);
+    return rows;
+  } catch (error) {
+    const message = String(error?.message || '');
+    const shouldRetry =
+      !retried &&
+      (error?.code === 'ECONNRESET' ||
+        error?.code === 'PROTOCOL_CONNECTION_LOST' ||
+        /ECONNRESET|PROTOCOL_CONNECTION_LOST|server has gone away/i.test(message));
+
+    if (!shouldRetry) {
+      throw error;
+    }
+
+    try {
+      await p.end();
+    } catch {
+      // ignore close errors and recreate pool below
+    }
+
+    pool = null;
+    return query(sql, params, true);
+  }
+}
+
+async function ensureWorkTaskColumns() {
+  if (workTaskColumnsEnsured || !isMySqlEnabled()) {
+    return;
+  }
+
+  const statements = [
+    `ALTER TABLE work_tasks ADD COLUMN progress INT NOT NULL DEFAULT 0`,
+    `ALTER TABLE work_tasks ADD COLUMN receiver_name VARCHAR(255) NULL`,
+    `ALTER TABLE work_tasks ADD COLUMN assigner_name VARCHAR(255) NULL`
+  ];
+
+  for (const sql of statements) {
+    try {
+      await query(sql);
+    } catch (error) {
+      const message = String(error?.message || '');
+      const isDuplicateColumn = error?.code === 'ER_DUP_FIELDNAME' || /Duplicate column name/i.test(message);
+      if (!isDuplicateColumn) {
+        throw error;
+      }
+    }
+  }
+
+  workTaskColumnsEnsured = true;
+}
+
+async function ensureWorkTaskExtraTable() {
+  if (workTaskExtraEnsured || !isMySqlEnabled()) {
+    return;
+  }
+
+  await query(
+    `
+      CREATE TABLE IF NOT EXISTS work_task_extra (
+        task_id VARCHAR(64) NOT NULL,
+        progress INT NOT NULL DEFAULT 0,
+        receiver_name VARCHAR(255) NULL,
+        assigner_name VARCHAR(255) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (task_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `
+  );
+
+  workTaskExtraEnsured = true;
 }
 
 async function ping() {
@@ -345,14 +418,138 @@ async function listPerformanceReviews() {
 }
 
 async function listWorkTasks() {
+  await ensureWorkTaskColumns();
+  await ensureWorkTaskExtraTable();
+
   return query(
     `
-      SELECT id, title, assignee_id AS assigneeId, assignee_name AS assigneeName,
-             due_date AS dueDate, priority, status, created_at AS createdAt
-      FROM work_tasks
-      ORDER BY created_at DESC
+      SELECT t.id, t.title, t.assignee_id AS assigneeId, t.assignee_name AS assigneeName,
+             t.due_date AS dueDate, t.priority, t.status,
+             COALESCE(e.progress, t.progress, 0) AS progress,
+             COALESCE(e.receiver_name, t.receiver_name) AS receiverName,
+             COALESCE(e.assigner_name, t.assigner_name) AS assignerName,
+             t.created_at AS createdAt
+      FROM work_tasks t
+      LEFT JOIN work_task_extra e ON e.task_id = t.id
+      ORDER BY t.created_at DESC
     `
   );
+}
+
+async function getWorkTaskById(id) {
+  await ensureWorkTaskColumns();
+  await ensureWorkTaskExtraTable();
+
+  const rows = await query(
+    `
+      SELECT t.id, t.title, t.assignee_id AS assigneeId, t.assignee_name AS assigneeName,
+             t.due_date AS dueDate, t.priority, t.status,
+             COALESCE(e.progress, t.progress, 0) AS progress,
+             COALESCE(e.receiver_name, t.receiver_name) AS receiverName,
+             COALESCE(e.assigner_name, t.assigner_name) AS assignerName,
+             t.created_at AS createdAt
+      FROM work_tasks t
+      LEFT JOIN work_task_extra e ON e.task_id = t.id
+      WHERE t.id = :id
+      LIMIT 1
+    `,
+    { id }
+  );
+
+  return rows[0] || null;
+}
+
+async function createWorkTask(input) {
+  await ensureWorkTaskColumns();
+  await ensureWorkTaskExtraTable();
+
+  await query(
+    `
+      INSERT INTO work_tasks (
+        id, title, assignee_id, assignee_name, due_date, priority, status, progress, receiver_name, assigner_name
+      ) VALUES (
+        :id, :title, :assigneeId, :assigneeName, :dueDate, :priority, :status, :progress, :receiverName, :assignerName
+      )
+    `,
+    input
+  );
+
+  await query(
+    `
+      INSERT INTO work_task_extra (task_id, progress, receiver_name, assigner_name)
+      VALUES (:taskId, :progress, :receiverName, :assignerName)
+      ON DUPLICATE KEY UPDATE
+        progress = VALUES(progress),
+        receiver_name = VALUES(receiver_name),
+        assigner_name = VALUES(assigner_name)
+    `,
+    {
+      taskId: input.id,
+      progress: input.progress,
+      receiverName: input.receiverName,
+      assignerName: input.assignerName
+    }
+  );
+
+  return getWorkTaskById(input.id);
+}
+
+async function updateWorkTask(id, input) {
+  await ensureWorkTaskColumns();
+  await ensureWorkTaskExtraTable();
+
+  console.log('[WORK][DB] updateWorkTask input', { id, input });
+
+  const updateResult = await query(
+    `
+      UPDATE work_tasks
+      SET title = :title,
+          assignee_name = :assigneeName,
+          due_date = :dueDate,
+          priority = :priority,
+          status = :status,
+          progress = :progress,
+          receiver_name = :receiverName,
+          assigner_name = :assignerName
+      WHERE id = :id
+    `,
+    { id, ...input }
+  );
+
+  console.log('[WORK][DB] update work_tasks result', { id, updateResult });
+
+  const upsertExtraResult = await query(
+    `
+      INSERT INTO work_task_extra (task_id, progress, receiver_name, assigner_name)
+      VALUES (:taskId, :progress, :receiverName, :assignerName)
+      ON DUPLICATE KEY UPDATE
+        progress = VALUES(progress),
+        receiver_name = VALUES(receiver_name),
+        assigner_name = VALUES(assigner_name)
+    `,
+    {
+      taskId: id,
+      progress: input.progress,
+      receiverName: input.receiverName,
+      assignerName: input.assignerName
+    }
+  );
+
+  console.log('[WORK][DB] upsert work_task_extra result', { id, upsertExtraResult });
+
+  const verifyRows = await query(
+    `
+      SELECT task_id AS taskId, progress, receiver_name AS receiverName, assigner_name AS assignerName
+      FROM work_task_extra
+      WHERE task_id = :id
+      LIMIT 1
+    `,
+    { id }
+  );
+
+  console.log('[WORK][DB] verify work_task_extra row', { id, row: verifyRows[0] || null });
+
+  return getWorkTaskById(id);
 }
 
 async function listTrainingCourses() {
@@ -559,6 +756,8 @@ async function toggleWorkplace(id) {
 
 module.exports = {
   isMySqlEnabled,
+  ensureWorkTaskColumns,
+  ensureWorkTaskExtraTable,
   ping,
   authenticateUser,
   listEmployees,
@@ -574,6 +773,8 @@ module.exports = {
   createPayroll,
   listPerformanceReviews,
   listWorkTasks,
+  createWorkTask,
+  updateWorkTask,
   listTrainingCourses,
   listFormRequests,
   listBenefitPlans,

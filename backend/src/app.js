@@ -69,6 +69,75 @@ function calculatePayroll(grossSalary) {
   };
 }
 
+function isFailedWorkTask(task, now) {
+  const progress = Math.max(0, Math.min(100, Number(task?.progress) || 0));
+  const isCancelled = task?.status === 'cancelled';
+  if (isCancelled) return false;
+
+  const hasIncompleteDone = task?.status === 'done' && progress < 100;
+
+  let isOverdueIncomplete = false;
+  if (task?.dueDate) {
+    const due = new Date(task.dueDate);
+    if (!Number.isNaN(due.getTime())) {
+      isOverdueIncomplete = due.getTime() < now.getTime() && progress < 100;
+    }
+  }
+
+  return hasIncompleteDone || isOverdueIncomplete;
+}
+
+function calculatePerformanceKpiSummary(payrollRows, tasks, reviews) {
+  const payrollNet = payrollRows.map((x) => Number(x.netSalary || 0));
+  const maxNet = payrollNet.length ? Math.max(...payrollNet, 1) : 1;
+  const avgNet = payrollNet.length ? payrollNet.reduce((s, x) => s + x, 0) / payrollNet.length : 0;
+  const kpiPayroll = Math.round(Math.min(100, (avgNet / maxNet) * 100));
+
+  const now = new Date();
+  const delayedTaskReasons = tasks
+    .filter((task) => isFailedWorkTask(task, now))
+    .map((task) => {
+      const progress = Math.max(0, Math.min(100, Number(task.progress) || 0));
+
+      let reason = `Công việc đã quá hạn nhưng tiến độ mới đạt ${progress}% (chưa hoàn thành).`;
+      if (task.status === 'done' && progress < 100) {
+        reason = `Công việc đã được đánh dấu done nhưng tiến độ chỉ ${progress}% (< 100%).`;
+      }
+
+      return {
+        taskId: task.id,
+        title: task.title || 'Không có tiêu đề',
+        assigneeName: task.assigneeName || '—',
+        dueDate: task.dueDate || now.toISOString(),
+        progress,
+        reason
+      };
+    });
+
+  const hasDelayedTasks = delayedTaskReasons.length > 0;
+  const workPoints = tasks.map((t) => {
+    const statusPoint = t.status === 'done' ? 100 : t.status === 'review' ? 80 : t.status === 'in_progress' ? 60 : t.status === 'todo' ? 30 : 0;
+    const priorityWeight = t.priority === 'urgent' ? 1.2 : t.priority === 'high' ? 1.1 : 1;
+    return Math.min(100, statusPoint * priorityWeight);
+  });
+
+  const rawKpiWork = workPoints.length ? Math.round(workPoints.reduce((s, x) => s + x, 0) / workPoints.length) : 0;
+  const kpiWork = hasDelayedTasks ? Math.min(rawKpiWork, 49) : rawKpiWork;
+
+  const kpiReview = reviews.length ? Math.round(reviews.reduce((s, x) => s + Number(x.score || 0), 0) / reviews.length) : 0;
+  const kpiTotal = Math.round(kpiPayroll * 0.35 + kpiWork * 0.35 + kpiReview * 0.3);
+
+  return {
+    kpiPayroll,
+    kpiWork,
+    kpiReview,
+    kpiTotal,
+    reviews,
+    workKpiPassed: !hasDelayedTasks,
+    delayedTaskReasons
+  };
+}
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1)
@@ -370,6 +439,24 @@ app.get('/api/performance/reviews', async (req, res) => {
   }
 });
 
+app.get('/api/performance/dashboard', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+
+  try {
+    const [payrollRows, tasks, reviews] = await Promise.all([
+      db.listPayrolls(),
+      db.listWorkTasks(),
+      db.listPerformanceReviews()
+    ]);
+
+    const summary = calculatePerformanceKpiSummary(payrollRows, tasks, reviews);
+    return res.json(summary);
+  } catch (error) {
+    console.error('Get performance dashboard failed:', error);
+    return res.status(500).json({ message: 'Lỗi truy vấn dashboard hiệu suất.' });
+  }
+});
+
 app.get('/api/work/tasks', async (req, res) => {
   if (!ensureMySql(req, res)) return;
   try {
@@ -378,6 +465,111 @@ app.get('/api/work/tasks', async (req, res) => {
   } catch (error) {
     console.error('List work tasks failed:', error);
     return res.status(500).json({ message: 'Lỗi truy vấn công việc.' });
+  }
+});
+
+app.post('/api/work/tasks', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+
+  const schema = z.object({
+    title: z.string().min(1),
+    assigneeName: z.string().nullable().optional(),
+    dueDate: z.string().nullable().optional(),
+    priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+    status: z.enum(['todo', 'in_progress', 'review', 'done', 'cancelled']).default('todo'),
+    progress: z.coerce.number().min(0).max(100).optional(),
+    receiverName: z.string().nullable().optional(),
+    assignerName: z.string().nullable().optional()
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ message: 'Dữ liệu công việc không hợp lệ.' });
+  }
+
+  try {
+    const row = await db.createWorkTask({
+      id: `TSK-${Date.now()}`,
+      title: parsed.data.title,
+      assigneeId: null,
+      assigneeName: parsed.data.assigneeName ?? null,
+      dueDate: parsed.data.dueDate ?? null,
+      priority: parsed.data.priority,
+      status: parsed.data.status,
+      progress: Math.max(0, Math.min(100, Number(parsed.data.progress) || 0)),
+      receiverName: parsed.data.receiverName ?? null,
+      assignerName: parsed.data.assignerName ?? null
+    });
+
+    return res.status(201).json(row);
+  } catch (error) {
+    console.error('Create work task failed:', error);
+    return res.status(500).json({ message: 'Lỗi tạo công việc.' });
+  }
+});
+
+app.patch('/api/work/tasks/:id', async (req, res) => {
+  if (!ensureMySql(req, res)) return;
+
+  const schema = z.object({
+    title: z.string().min(1),
+    assigneeName: z.string().nullable().optional(),
+    dueDate: z.string().nullable().optional(),
+    priority: z.enum(['low', 'medium', 'high', 'urgent']),
+    status: z.enum(['todo', 'in_progress', 'review', 'done', 'cancelled']),
+    progress: z.coerce.number().min(0).max(100).optional(),
+    receiverName: z.string().nullable().optional(),
+    assignerName: z.string().nullable().optional()
+  }).partial().extend({
+    title: z.string().min(1).optional(),
+    priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+    status: z.enum(['todo', 'in_progress', 'review', 'done', 'cancelled']).optional()
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ message: 'Dữ liệu cập nhật công việc không hợp lệ.' });
+  }
+
+  const normalized = {
+    title: parsed.data.title,
+    assigneeName: parsed.data.assigneeName ?? null,
+    dueDate: parsed.data.dueDate || null,
+    priority: parsed.data.priority,
+    status: parsed.data.status,
+    progress: Math.max(0, Math.min(100, Number(parsed.data.progress) || 0)),
+    receiverName: parsed.data.receiverName ?? null,
+    assignerName: parsed.data.assignerName ?? null
+  };
+
+  console.log('[WORK][PATCH] request', {
+    id: req.params.id,
+    body: req.body,
+    normalized
+  });
+
+  try {
+    const row = await db.updateWorkTask(req.params.id, normalized);
+
+    console.log('[WORK][PATCH] db.updateWorkTask result', {
+      id: req.params.id,
+      row
+    });
+
+    if (row) {
+      return res.json(row);
+    }
+
+    const created = await db.createWorkTask({
+      id: req.params.id,
+      assigneeId: null,
+      ...normalized
+    });
+
+    return res.status(201).json({ ...created, createdFromPatch: true });
+  } catch (error) {
+    console.error('Update work task failed:', error);
+    return res.status(500).json({ message: 'Lỗi cập nhật công việc.' });
   }
 });
 

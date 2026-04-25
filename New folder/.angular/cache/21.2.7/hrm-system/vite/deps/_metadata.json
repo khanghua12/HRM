@@ -1,106 +1,97 @@
 {
-  "hash": "3bc28df7",
-  "configHash": "68564831",
+  "hash": "309c236c",
+  "configHash": "dc55335c",
   "lockfileHash": "11b42f7f",
-  "browserHash": "07e93358",
+  "browserHash": "2b580255",
   "optimized": {
     "@angular/common": {
       "src": "../../../../../../node_modules/@angular/common/fesm2022/common.mjs",
       "file": "@angular_common.js",
-      "fileHash": "c1dc702f",
+      "fileHash": "bbd50a87",
       "needsInterop": false
     },
     "@angular/common/http": {
       "src": "../../../../../../node_modules/@angular/common/fesm2022/http.mjs",
       "file": "@angular_common_http.js",
-      "fileHash": "5eea025a",
+      "fileHash": "80816364",
       "needsInterop": false
     },
     "@angular/core": {
       "src": "../../../../../../node_modules/@angular/core/fesm2022/core.mjs",
       "file": "@angular_core.js",
-      "fileHash": "9343d26b",
+      "fileHash": "1eb26c84",
       "needsInterop": false
     },
     "@angular/core/rxjs-interop": {
       "src": "../../../../../../node_modules/@angular/core/fesm2022/rxjs-interop.mjs",
       "file": "@angular_core_rxjs-interop.js",
-      "fileHash": "6c430ff1",
+      "fileHash": "f2a4d416",
       "needsInterop": false
     },
     "@angular/forms": {
       "src": "../../../../../../node_modules/@angular/forms/fesm2022/forms.mjs",
       "file": "@angular_forms.js",
-      "fileHash": "6bf3b0f0",
+      "fileHash": "c0ec865f",
       "needsInterop": false
     },
     "@angular/platform-browser": {
       "src": "../../../../../../node_modules/@angular/platform-browser/fesm2022/platform-browser.mjs",
       "file": "@angular_platform-browser.js",
-      "fileHash": "6efce7d1",
+      "fileHash": "b96e1488",
       "needsInterop": false
     },
     "@angular/router": {
       "src": "../../../../../../node_modules/@angular/router/fesm2022/router.mjs",
       "file": "@angular_router.js",
-      "fileHash": "ff99f05b",
+      "fileHash": "9c7e798c",
       "needsInterop": false
     },
     "lucide-angular": {
       "src": "../../../../../../node_modules/lucide-angular/fesm2020/lucide-angular.mjs",
       "file": "lucide-angular.js",
-      "fileHash": "730dd82a",
+      "fileHash": "4c9a0815",
       "needsInterop": false
     },
     "ng2-charts": {
       "src": "../../../../../../node_modules/ng2-charts/fesm2022/ng2-charts.mjs",
       "file": "ng2-charts.js",
-      "fileHash": "e5517321",
+      "fileHash": "eb3615f1",
       "needsInterop": false
     },
     "rxjs": {
       "src": "../../../../../../node_modules/rxjs/dist/esm5/index.js",
       "file": "rxjs.js",
-      "fileHash": "7352d4fc",
-      "needsInterop": false
-    },
-    "xlsx": {
-      "src": "../../../../../../node_modules/xlsx/xlsx.mjs",
-      "file": "xlsx.js",
-      "fileHash": "facc549b",
+      "fileHash": "0bc69128",
       "needsInterop": false
     },
     "zone.js": {
       "src": "../../../../../../node_modules/zone.js/fesm2015/zone.js",
       "file": "zone__js.js",
-      "fileHash": "b27be6ee",
+      "fileHash": "111ff700",
       "needsInterop": true
     }
   },
   "chunks": {
-    "chunk-Y6ULK7WF": {
-      "file": "chunk-Y6ULK7WF.js"
+    "chunk-7G2ST7XP": {
+      "file": "chunk-7G2ST7XP.js"
     },
-    "chunk-JIKHWH5N": {
-      "file": "chunk-JIKHWH5N.js"
+    "chunk-PDS2RBAW": {
+      "file": "chunk-PDS2RBAW.js"
     },
-    "chunk-JRRXB6PU": {
-      "file": "chunk-JRRXB6PU.js"
+    "chunk-55FRA6OD": {
+      "file": "chunk-55FRA6OD.js"
     },
-    "chunk-ADTDFI6O": {
-      "file": "chunk-ADTDFI6O.js"
+    "chunk-ZNDANAYI": {
+      "file": "chunk-ZNDANAYI.js"
     },
-    "chunk-J3S4CD5O": {
-      "file": "chunk-J3S4CD5O.js"
+    "chunk-PXB5QXP3": {
+      "file": "chunk-PXB5QXP3.js"
     },
-    "chunk-HCT4UJTQ": {
-      "file": "chunk-HCT4UJTQ.js"
+    "chunk-G7U5O3NR": {
+      "file": "chunk-G7U5O3NR.js"
     },
-    "chunk-NUVBHD63": {
-      "file": "chunk-NUVBHD63.js"
-    },
-    "chunk-WDMUDEB6": {
-      "file": "chunk-WDMUDEB6.js"
+    "chunk-KUW5KNZA": {
+      "file": "chunk-KUW5KNZA.js"
     }
   }
 }
